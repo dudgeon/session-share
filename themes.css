@@ -139,7 +139,9 @@ input, textarea { font-family: inherit; color: inherit; }
   font-size: 17px;
   letter-spacing: -0.01em;
   color: var(--ink);
+  text-decoration: none;
 }
+.brandmark:hover { color: var(--accent); }
 .brandmark img { height: 18px; width: auto; }
 
 .search {

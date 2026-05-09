@@ -683,17 +683,23 @@ function formatDuration(a, b) {
 // ────────────────────────────────────────────────────────────────────────────
 function Toolbar({
   mode, onMode, onUploadClick, onExport,
-  search, onSearch, theme, onTheme, hasData,
+  search, onSearch, theme, onTheme, hasData, isLocked,
   onCollapseAll, onExpandAll,
 }) {
   return (
     <div className="toolbar">
       <div className="toolbar-inner">
         <div className="toolbar-left">
-          <div className="brandmark">
+          <a
+            className="brandmark"
+            href="https://dudgeon.org/session-share/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="session.share"
+          >
             <img src={ASSET_CLAWD} alt="" />
             <span>session.share</span>
-          </div>
+          </a>
         </div>
         <div className="toolbar-mid">
           {hasData ? (
@@ -709,7 +715,7 @@ function Toolbar({
           ) : null}
         </div>
         <div className="toolbar-right">
-          {hasData ? (
+          {hasData && !isLocked ? (
             <div className="seg">
               <button className={mode === "edit" ? "on" : ""} onClick={() => onMode("edit")}><Icon.Edit/> Edit</button>
               <button className={mode === "view" ? "on" : ""} onClick={() => onMode("view")}><Icon.Lock/> View</button>
@@ -723,10 +729,12 @@ function Toolbar({
             </span>
           ) : null}
 
-          <button className="tbtn" onClick={onUploadClick} title="Replace session log">
-            <Icon.Upload/> {hasData ? "replace" : "upload"}
-          </button>
-          {hasData ? (
+          {!isLocked ? (
+            <button className="tbtn" onClick={onUploadClick} title="Replace session log">
+              <Icon.Upload/> {hasData ? "replace" : "upload"}
+            </button>
+          ) : null}
+          {hasData && !isLocked ? (
             <button className="tbtn tbtn-primary" onClick={onExport} title="Export single-file HTML">
               <Icon.Download/> export
             </button>

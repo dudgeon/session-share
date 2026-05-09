@@ -468,6 +468,7 @@ ${safeJs(repAssets(appSrc))}
         theme={theme}
         onTheme={setTheme}
         hasData={hasData}
+        isLocked={isLocked}
         onCollapseAll={collapseAllDefaults}
         onExpandAll={expandAll}
       />
