@@ -90,6 +90,9 @@ function App() {
   const [prefs, setPrefs] = U(loadPrefs);
   const [showExportInfo, setShowExportInfo] = U(false);
   const [persistError, setPersistError] = U(false);
+  // ID of the comment that was just added — CommentCard reads this to enter
+  // edit mode automatically on mount, then clears it via onConsumeAutoEdit.
+  const [autoEditCommentId, setAutoEditCommentId] = U(null);
   // Theme is locked to fieldnotes; the html element already carries it from
   // markup, so no runtime sync needed.
   const theme = "fieldnotes";
@@ -165,14 +168,16 @@ function App() {
   };
 
   const addComment = (node) => {
+    const newId = uid();
     const cur = edits[node.id] || {};
     const comments = (cur.comments || []).concat({
-      id: uid(),
+      id: newId,
       text: "",
       author: meta.author || "note",
       createdAt: Date.now(),
     });
     updateEdit(node.id, { comments });
+    setAutoEditCommentId(newId);
   };
 
   const editComment = (nodeId, commentId, text) => {
@@ -392,24 +397,35 @@ function App() {
       // Try to inline React/Babel for a fully offline artifact. If unpkg is
       // unreachable (offline export), fall back to <script src=...> tags so
       // the artifact still works for viewers with a connection.
+      // Override with ?inline=0 in the URL to force the CDN-tag path (useful
+      // for testing whether viewers' networks reach unpkg).
+      const inlineParam = new URLSearchParams(window.location.search).get("inline");
+      const inlineLibs = inlineParam === "0" ? false : true;
       let libsBlock;
-      try {
-        const [reactSrc, reactDomSrc, babelSrc] = await Promise.all([
-          fetch(REACT_URL).then(r => { if (!r.ok) throw new Error("react"); return r.text(); }),
-          fetch(REACT_DOM_URL).then(r => { if (!r.ok) throw new Error("react-dom"); return r.text(); }),
-          fetch(BABEL_URL).then(r => { if (!r.ok) throw new Error("babel"); return r.text(); }),
-        ]);
-        const safeJs = (s) => s.replace(/<\/script/gi, "<\\/script");
-        libsBlock =
-`<script>${safeJs(reactSrc)}</script>
-<script>${safeJs(reactDomSrc)}</script>
-<script>${safeJs(babelSrc)}</script>`;
-      } catch (e) {
-        console.warn("Could not inline React/Babel; falling back to CDN tags:", e);
+      if (!inlineLibs) {
         libsBlock =
 `<script src="${REACT_URL}" crossorigin="anonymous"></script>
 <script src="${REACT_DOM_URL}" crossorigin="anonymous"></script>
 <script src="${BABEL_URL}" crossorigin="anonymous"></script>`;
+      } else {
+        try {
+          const [reactSrc, reactDomSrc, babelSrc] = await Promise.all([
+            fetch(REACT_URL).then(r => { if (!r.ok) throw new Error("react"); return r.text(); }),
+            fetch(REACT_DOM_URL).then(r => { if (!r.ok) throw new Error("react-dom"); return r.text(); }),
+            fetch(BABEL_URL).then(r => { if (!r.ok) throw new Error("babel"); return r.text(); }),
+          ]);
+          const safeJs = (s) => s.replace(/<\/script/gi, "<\\/script");
+          libsBlock =
+`<script>${safeJs(reactSrc)}</script>
+<script>${safeJs(reactDomSrc)}</script>
+<script>${safeJs(babelSrc)}</script>`;
+        } catch (e) {
+          console.warn("Could not inline React/Babel; falling back to CDN tags:", e);
+          libsBlock =
+`<script src="${REACT_URL}" crossorigin="anonymous"></script>
+<script src="${REACT_DOM_URL}" crossorigin="anonymous"></script>
+<script src="${BABEL_URL}" crossorigin="anonymous"></script>`;
+        }
       }
 
       const clawdUri = await blobToDataUri(clawdBlob);
@@ -579,16 +595,7 @@ ${safeJs(repAssets(appSrc))}
                                 mode={mode}
                                 onToggleCollapse={() => toggleCollapse(node)}
                                 onDelete={() => deleteNode(node)}
-                                onAddComment={() => {
-                                  addComment(node);
-                                  setTimeout(() => {
-                                    const last = (edits[node.id] && edits[node.id].comments) ? edits[node.id].comments[edits[node.id].comments.length - 1] : null;
-                                    if (last) {
-                                      const el = commentRefs.current.get(last.id);
-                                      if (el) el.querySelector("textarea")?.focus();
-                                    }
-                                  }, 50);
-                                }}
+                                onAddComment={() => addComment(node)}
                               />
                             </div>
                           );
@@ -617,16 +624,7 @@ ${safeJs(repAssets(appSrc))}
                         mode={mode}
                         onToggleCollapse={() => toggleCollapse(node)}
                         onDelete={() => deleteNode(node)}
-                        onAddComment={() => {
-                          addComment(node);
-                          setTimeout(() => {
-                            const last = (edits[node.id] && edits[node.id].comments) ? edits[node.id].comments[edits[node.id].comments.length - 1] : null;
-                            if (last) {
-                              const el = commentRefs.current.get(last.id);
-                              if (el) el.querySelector("textarea")?.focus();
-                            }
-                          }, 50);
-                        }}
+                        onAddComment={() => addComment(node)}
                       />
                     </div>
                   );
@@ -645,6 +643,9 @@ ${safeJs(repAssets(appSrc))}
                       if (el) commentRefs.current.set(id, el);
                       else commentRefs.current.delete(id);
                     }}
+                    autoEditId={autoEditCommentId}
+                    onConsumeAutoEdit={() => setAutoEditCommentId(null)}
+                    onResize={recomputePositions}
                   />
                 ) : null}
               </div>

@@ -55,6 +55,12 @@ Four script files load in order. Order matters because each later file expects g
 2. **Asset URLs are rewritten** by `repAssets` — anywhere the source contains the exact strings `"assets/clawd.png"` or `"assets/person.png"`, they're swapped to base64 data URIs. If you add new asset paths, extend `repAssets`.
 3. **React/Babel are inlined when possible.** The export fetches React, ReactDOM, and Babel from unpkg at click time and inlines them, so the resulting artifact opens fully offline. If those fetches fail (offline export), it falls back to `<script src=...>` tags pointing back at unpkg — the artifact then needs internet to view.
 
+## Feature flags
+
+Read at click/render time from `window.location.search`:
+
+- **`?inline=0`** — exports without inlining React/Babel (uses `<script src=unpkg>` tags instead). Used to A/B-test whether viewers' networks reach unpkg; inlined export is ~3MB heavier. Default behavior is to inline.
+
 ## Style for changes
 
 The prototype is React-via-CDN with no build system. Don't introduce one (no Vite, no Webpack, no TypeScript) without explicit user direction — it would defeat the "single-file artifact you can share" premise.

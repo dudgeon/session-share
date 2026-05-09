@@ -338,7 +338,7 @@ function DeletedRun({ count, mode, onRestore }) {
 // ────────────────────────────────────────────────────────────────────────────
 // Comment rail (right side)
 // ────────────────────────────────────────────────────────────────────────────
-function CommentRail({ items, mode, onEdit, onDelete, registerRef }) {
+function CommentRail({ items, mode, onEdit, onDelete, registerRef, autoEditId, onConsumeAutoEdit, onResize }) {
   if (!items || items.length === 0) return null;
   return (
     <aside className="comment-rail">
@@ -350,19 +350,49 @@ function CommentRail({ items, mode, onEdit, onDelete, registerRef }) {
           onEdit={(text) => onEdit(it.nodeId, it.id, text)}
           onDelete={() => onDelete(it.nodeId, it.id)}
           registerRef={(el) => registerRef && registerRef(it.id, el)}
+          autoEdit={autoEditId === it.id}
+          onConsumeAutoEdit={onConsumeAutoEdit}
+          onResize={onResize}
         />
       ))}
     </aside>
   );
 }
 
-function CommentCard({ item, mode, onEdit, onDelete, registerRef }) {
+function CommentCard({ item, mode, onEdit, onDelete, registerRef, autoEdit, onConsumeAutoEdit, onResize }) {
   // Newly-added comments arrive with empty text — open them in edit mode so
   // the user doesn't have to click again to start typing.
   const [editing, setEditing] = useState(mode === "edit" && !item.text);
   const [draft, setDraft] = useState(item.text);
 
   useEffect(() => { setDraft(item.text); }, [item.text]);
+
+  // Robust path: the parent flags new comments by id. The useState init
+  // above runs once at mount, but a card can mount during a render where
+  // the props or item state look different from what the user just did;
+  // this effect catches those cases on the next tick.
+  useEffect(() => {
+    if (autoEdit) {
+      setEditing(true);
+      onConsumeAutoEdit && onConsumeAutoEdit();
+    }
+    // eslint-disable-next-line
+  }, [autoEdit]);
+
+  // Notify the rail when this card's height changes so its anti-overlap
+  // pass can rerun. Without this, entering edit mode grows the textarea
+  // and covers the next card's save/cancel buttons.
+  const cardRef = useRef(null);
+  const onResizeRef = useRef(onResize);
+  useEffect(() => { onResizeRef.current = onResize; }, [onResize]);
+  useEffect(() => {
+    if (!cardRef.current || !window.ResizeObserver) return;
+    const ro = new ResizeObserver(() => {
+      if (onResizeRef.current) onResizeRef.current();
+    });
+    ro.observe(cardRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const taRef = useRef(null);
   useEffect(() => {
@@ -385,7 +415,7 @@ function CommentCard({ item, mode, onEdit, onDelete, registerRef }) {
   return (
     <div
       className={`comment-card ${editing ? "editing" : ""}`}
-      ref={registerRef}
+      ref={(el) => { cardRef.current = el; if (registerRef) registerRef(el); }}
       data-comment-id={item.id}
       data-node-id={item.nodeId}
       style={{ "--anchor-top": item.anchorTop + "px" }}
