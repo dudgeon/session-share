@@ -357,7 +357,9 @@ function CommentRail({ items, mode, onEdit, onDelete, registerRef }) {
 }
 
 function CommentCard({ item, mode, onEdit, onDelete, registerRef }) {
-  const [editing, setEditing] = useState(false);
+  // Newly-added comments arrive with empty text — open them in edit mode so
+  // the user doesn't have to click again to start typing.
+  const [editing, setEditing] = useState(mode === "edit" && !item.text);
   const [draft, setDraft] = useState(item.text);
 
   useEffect(() => { setDraft(item.text); }, [item.text]);

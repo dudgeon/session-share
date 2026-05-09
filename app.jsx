@@ -75,8 +75,11 @@ function App() {
     savePersisted({ raw, edits, meta, theme, mode });
   }, [raw, edits, meta, theme, mode, isLocked]);
 
-  // Theme on body
-  E(() => { document.body.dataset.theme = theme; }, [theme]);
+  // Theme on documentElement (html). The CSS uses descendant selectors like
+  // `[data-theme="fieldnotes"] body { ... }` for the ledger-paper background;
+  // those only match when the attribute lives on an ancestor of body, so it
+  // has to go on <html>, not <body>. Keeps live and exported pages identical.
+  E(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   // Lock indicator on body for CSS hooks
   E(() => { if (isLocked) document.body.dataset.locked = "true"; }, [isLocked]);
 
