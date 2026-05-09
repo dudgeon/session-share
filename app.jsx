@@ -26,7 +26,10 @@ function savePersisted(state) {
       theme: state.theme,
       mode: state.mode,
     }));
-  } catch (e) { /* size limits etc */ }
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); }
@@ -86,6 +89,7 @@ function App() {
   const [parseError, setParseError] = U(null);
   const [prefs, setPrefs] = U(loadPrefs);
   const [showExportInfo, setShowExportInfo] = U(false);
+  const [persistError, setPersistError] = U(false);
   // Theme is locked to fieldnotes; the html element already carries it from
   // markup, so no runtime sync needed.
   const theme = "fieldnotes";
@@ -93,7 +97,8 @@ function App() {
   // Persist on changes (skip in locked mode)
   E(() => {
     if (isLocked) return;
-    savePersisted({ raw, edits, meta, theme, mode });
+    const ok = savePersisted({ raw, edits, meta, theme, mode });
+    setPersistError(!ok);
   }, [raw, edits, meta, mode, isLocked]);
   // Lock indicator on body for CSS hooks
   E(() => { if (isLocked) document.body.dataset.locked = "true"; }, [isLocked]);
@@ -463,6 +468,12 @@ ${safeJs(repAssets(appSrc))}
 
   return (
     <div className="app-root">
+      {persistError ? (
+        <div className="persist-warn" role="status">
+          <span>Session too large to autosave to this browser. Your edits are still in memory but will be lost if you refresh — export now to keep them.</span>
+          <button className="iconbtn" onClick={() => setPersistError(false)} aria-label="Dismiss"><Icon.X/></button>
+        </div>
+      ) : null}
       <Toolbar
         mode={mode}
         onMode={isLocked ? () => {} : setMode}
