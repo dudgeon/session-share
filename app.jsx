@@ -72,7 +72,16 @@ function App() {
   const [edits, setEdits] = U(exported ? exported.edits : (persisted ? persisted.edits : {}));
   const [meta, setMeta] = U(exported ? exported.meta : (persisted ? persisted.meta : { title: "", author: "", description: "" }));
   const [mode, setMode] = U(isLocked ? "view" : (persisted ? persisted.mode : "edit"));
+  // searchInput drives the input field (instant); search drives the actual
+  // highlighting (debounced). Walking the DOM and inserting <mark> nodes is
+  // expensive — short queries like "e" match thousands of times and made the
+  // next keystroke feel sticky.
+  const [searchInput, setSearchInput] = U("");
   const [search, setSearch] = U("");
+  E(() => {
+    const t = setTimeout(() => setSearch(searchInput), 120);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [showImport, setShowImport] = U(false);
   const [parseError, setParseError] = U(null);
   const [prefs, setPrefs] = U(loadPrefs);
@@ -459,8 +468,8 @@ ${safeJs(repAssets(appSrc))}
         onMode={isLocked ? () => {} : setMode}
         onUploadClick={triggerUpload}
         onExport={handleExport}
-        search={search}
-        onSearch={setSearch}
+        search={searchInput}
+        onSearch={setSearchInput}
         hasData={hasData}
         isLocked={isLocked}
         onCollapseAll={collapseAllDefaults}
