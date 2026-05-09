@@ -1077,13 +1077,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 28%, transparent); color:
 [data-theme="atelier"] .session-title::first-letter { color: var(--accent); }
 [data-theme="atelier"] .spine { display: block; left: calc(var(--gutter-width) - 60px); border-left: 1px dashed var(--rule-2); background: transparent;}
 
-/* ── FIELDNOTES: ledger ruled paper, mono accents, denser ── */
-[data-theme="fieldnotes"] body {
-  background-image: linear-gradient(to bottom, transparent 27px, var(--rule) 27px, var(--rule) 28px, transparent 28px);
-  background-size: 100% 28px;
-  background-attachment: fixed;
-  background-position: 0 80px;
-}
+/* ── FIELDNOTES: mono accents, denser ── */
 [data-theme="fieldnotes"] .toolbar { background: var(--paper); }
 [data-theme="fieldnotes"] .session-eyebrow,
 [data-theme="fieldnotes"] .session-meta dt { font-family: var(--font-mono); }
