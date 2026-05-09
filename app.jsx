@@ -362,13 +362,20 @@ function App() {
         .split('"assets/clawd.png"').join('"' + clawdUri + '"')
         .split('"assets/person.png"').join('"' + personUri + '"');
 
+      // Inlined source can contain literal "</script>" (in comments and in
+      // this very export template). Without escaping, the HTML parser ends
+      // the outer <script> early and dumps the rest of the source as text.
+      // "<\/script" still parses to "</script" in JS strings/comments but
+      // the HTML parser doesn't recognise it as a closing tag.
+      const safeJs = (s) => s.replace(/<\/script/gi, "<\\/script");
+      const safeCss = (s) => s.replace(/<\/style/gi, "<\\/style");
+
       const exportState = {
         raw, edits, meta, theme,
         version: 1,
         exportedAt: new Date().toISOString(),
       };
 
-      // Pre-stringify safely (no </script> in content)
       const stateJson = JSON.stringify(exportState).replace(/</g, "\\u003c");
 
       const title = escapeHtml(meta.title || "Claude Code session");
@@ -382,7 +389,7 @@ function App() {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title>
 <meta name="description" content="${desc}">
-<style>${cssSrc}</style>
+<style>${safeCss(cssSrc)}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -391,10 +398,10 @@ function App() {
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script type="text/babel" data-presets="react">
-${repAssets(parserSrc)}
-${repAssets(markdownSrc)}
-${repAssets(uiSrc)}
-${repAssets(appSrc)}
+${safeJs(repAssets(parserSrc))}
+${safeJs(repAssets(markdownSrc))}
+${safeJs(repAssets(uiSrc))}
+${safeJs(repAssets(appSrc))}
 </script>
 </body>
 </html>`;
