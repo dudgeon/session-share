@@ -375,14 +375,6 @@ input, textarea { font-family: inherit; color: inherit; }
 .smt-chip + .smt-chip { position: relative; }
 .smt-chip + .smt-chip::before { content: "·"; color: var(--rule-2); margin-right: 14px; margin-left: -10px; }
 .session-eyebrow { white-space: nowrap; flex-wrap: wrap; }
-  margin: 24px 0 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--rule);
-  font-family: var(--font-ui);
-  font-size: 12.5px;
-  color: var(--ink-2);
-  max-width: 520px;
-}
 .session-meta dt {
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -700,7 +692,7 @@ input, textarea { font-family: inherit; color: inherit; }
   border-radius: 3px;
   font-family: var(--font-ui);
   font-size: 11px;
-  color: var(--ink-3);
+  color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
 }

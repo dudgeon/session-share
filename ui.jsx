@@ -683,7 +683,7 @@ function formatDuration(a, b) {
 // ────────────────────────────────────────────────────────────────────────────
 function Toolbar({
   mode, onMode, onUploadClick, onExport,
-  search, onSearch, theme, onTheme, hasData, isLocked,
+  search, onSearch, hasData, isLocked,
   onCollapseAll, onExpandAll,
 }) {
   return (
@@ -746,53 +746,6 @@ function Toolbar({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Theme switcher
-// ────────────────────────────────────────────────────────────────────────────
-const THEMES = [
-  { id: "letter",     label: "Letter",      desc: "Cream paper, marginalia comments" },
-  { id: "atelier",    label: "Atelier",     desc: "Timeline gutter, numbered turns" },
-  { id: "fieldnotes", label: "Field notes", desc: "Ledger ruled, dense + monospace" },
-  { id: "twilight",   label: "Twilight",    desc: "Dark plum, cream ink" },
-];
-
-function ThemeSwitcher({ theme, onTheme }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-  const current = THEMES.find(t => t.id === theme) || THEMES[0];
-  return (
-    <div className="theme-pick" ref={ref}>
-      <button className="tbtn" onClick={() => setOpen(o => !o)} title="Visual theme">
-        <span className={`theme-swatch swatch-${theme}`}></span>
-        <span>{current.label}</span>
-      </button>
-      {open ? (
-        <div className="theme-menu">
-          {THEMES.map(t => (
-            <button
-              key={t.id}
-              className={`theme-opt ${t.id === theme ? "on" : ""}`}
-              onClick={() => { onTheme(t.id); setOpen(false); }}
-            >
-              <span className={`theme-swatch swatch-${t.id}`}></span>
-              <span className="theme-opt-text">
-                <span className="theme-opt-label">{t.label}</span>
-                <span className="theme-opt-desc">{t.desc}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Post-export confirmation modal — explains the artifact, offers a
 // "don't show again" preference written to a separate localStorage key.
 // ────────────────────────────────────────────────────────────────────────────
@@ -837,5 +790,5 @@ function ExportInfoModal({ open, onClose, hidePref, setHidePref }) {
 Object.assign(window, {
   Icon, MD, Avatar, NodeRow, DeletedRun, ToolRun,
   CommentRail, CommentCard, ImportModal, ExportInfoModal,
-  ImportLanding, SessionHeader, Toolbar, THEMES,
+  ImportLanding, SessionHeader, Toolbar,
 });

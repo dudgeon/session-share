@@ -72,24 +72,20 @@ function App() {
   const [edits, setEdits] = U(exported ? exported.edits : (persisted ? persisted.edits : {}));
   const [meta, setMeta] = U(exported ? exported.meta : (persisted ? persisted.meta : { title: "", author: "", description: "" }));
   const [mode, setMode] = U(isLocked ? "view" : (persisted ? persisted.mode : "edit"));
-  const [theme, setTheme] = U("fieldnotes");
   const [search, setSearch] = U("");
   const [showImport, setShowImport] = U(false);
   const [parseError, setParseError] = U(null);
   const [prefs, setPrefs] = U(loadPrefs);
   const [showExportInfo, setShowExportInfo] = U(false);
+  // Theme is locked to fieldnotes; the html element already carries it from
+  // markup, so no runtime sync needed.
+  const theme = "fieldnotes";
 
   // Persist on changes (skip in locked mode)
   E(() => {
     if (isLocked) return;
     savePersisted({ raw, edits, meta, theme, mode });
-  }, [raw, edits, meta, theme, mode, isLocked]);
-
-  // Theme on documentElement (html). The CSS uses descendant selectors like
-  // `[data-theme="fieldnotes"] body { ... }` for the ledger-paper background;
-  // those only match when the attribute lives on an ancestor of body, so it
-  // has to go on <html>, not <body>. Keeps live and exported pages identical.
-  E(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  }, [raw, edits, meta, mode, isLocked]);
   // Lock indicator on body for CSS hooks
   E(() => { if (isLocked) document.body.dataset.locked = "true"; }, [isLocked]);
 
@@ -465,8 +461,6 @@ ${safeJs(repAssets(appSrc))}
         onExport={handleExport}
         search={search}
         onSearch={setSearch}
-        theme={theme}
-        onTheme={setTheme}
         hasData={hasData}
         isLocked={isLocked}
         onCollapseAll={collapseAllDefaults}
