@@ -910,6 +910,39 @@ mark.hl { background: color-mix(in srgb, var(--accent) 28%, transparent); color:
   margin: 10px 0 0;
 }
 
+/* Export-info modal */
+.export-body p {
+  margin: 0 0 12px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  font-size: 14px;
+  font-family: var(--font-body);
+}
+.export-info-note {
+  font-size: 12.5px !important;
+  color: var(--muted) !important;
+}
+.export-info-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.export-info-pref {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+.export-info-pref input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+
 /* Import modal */
 .import-body .drop { padding: 28px 22px; margin-bottom: 16px; }
 .import-sample {

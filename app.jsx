@@ -8,6 +8,7 @@ const { useState: U, useEffect: E, useRef: R, useMemo: M, useLayoutEffect: LE, F
 // Persistence
 // ────────────────────────────────────────────────────────────────────────────
 const LS_KEY = "session-share-v1";
+const PREFS_KEY = "session-share-prefs-v1";
 
 function loadPersisted() {
   try {
@@ -26,6 +27,13 @@ function savePersisted(state) {
       mode: state.mode,
     }));
   } catch (e) { /* size limits etc */ }
+}
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); }
+  catch { return {}; }
+}
+function savePrefs(prefs) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -68,6 +76,8 @@ function App() {
   const [search, setSearch] = U("");
   const [showImport, setShowImport] = U(false);
   const [parseError, setParseError] = U(null);
+  const [prefs, setPrefs] = U(loadPrefs);
+  const [showExportInfo, setShowExportInfo] = U(false);
 
   // Persist on changes (skip in locked mode)
   E(() => {
@@ -417,10 +427,17 @@ ${safeJs(repAssets(appSrc))}
 
       const filename = (slugify(meta.title) || "session") + ".html";
       downloadFile(filename, html, "text/html");
+      if (!prefs.hideExportInfo) setShowExportInfo(true);
     } catch (err) {
       console.error(err);
       alert("Export failed: " + (err.message || err));
     }
+  };
+
+  const updatePref = (key, val) => {
+    const next = { ...prefs, [key]: val };
+    setPrefs(next);
+    savePrefs(next);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -602,6 +619,13 @@ ${safeJs(repAssets(appSrc))}
         onFile={handleFile}
         onSample={hasData ? null : handleSample}
         mode={hasData ? "replace" : "initial"}
+      />
+
+      <ExportInfoModal
+        open={showExportInfo}
+        onClose={() => setShowExportInfo(false)}
+        hidePref={!!prefs.hideExportInfo}
+        setHidePref={(v) => updatePref("hideExportInfo", v)}
       />
     </div>
   );

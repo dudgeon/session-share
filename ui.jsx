@@ -785,10 +785,49 @@ function ThemeSwitcher({ theme, onTheme }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Post-export confirmation modal — explains the artifact, offers a
+// "don't show again" preference written to a separate localStorage key.
+// ────────────────────────────────────────────────────────────────────────────
+function ExportInfoModal({ open, onClose, hidePref, setHidePref }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="modal-scrim" onClick={onClose}>
+      <div className="import-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Export info">
+        <div className="import-head">
+          <h2>Exported</h2>
+          <button className="iconbtn" onClick={onClose} aria-label="Close"><Icon.X/></button>
+        </div>
+        <div className="export-body">
+          <p>The downloaded HTML is a standalone artifact. Open it locally, drop it into Slack or email, host it anywhere — no server, no account, no install. Recipients see exactly what you see now.</p>
+          <p className="export-info-note">First open needs internet to fetch React from unpkg; after that the browser caches it.</p>
+          <div className="export-info-foot">
+            <label className="export-info-pref">
+              <input
+                type="checkbox"
+                checked={!!hidePref}
+                onChange={(e) => setHidePref(e.target.checked)}
+              />
+              <span>Don't show this again</span>
+            </label>
+            <button className="tbtn tbtn-primary" onClick={onClose}>Got it</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Export
 // ────────────────────────────────────────────────────────────────────────────
 Object.assign(window, {
   Icon, MD, Avatar, NodeRow, DeletedRun, ToolRun,
-  CommentRail, CommentCard, ImportModal,
+  CommentRail, CommentCard, ImportModal, ExportInfoModal,
   ImportLanding, SessionHeader, Toolbar, THEMES,
 });
