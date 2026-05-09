@@ -49,10 +49,11 @@ Four script files load in order. Order matters because each later file expects g
 
 ## The export function (most error-prone code)
 
-`handleExport` in `app.jsx` builds a single self-contained HTML file by concatenating all source + CSS into one outer `<script type="text/babel">` tag, then injecting state as `window.__LOCKED_DATA__`. Two pitfalls:
+`handleExport` in `app.jsx` builds a single self-contained HTML file by concatenating all source + CSS into one outer `<script type="text/babel">` tag, then injecting state as `window.__LOCKED_DATA__`. Pitfalls:
 
 1. **`</script>` and `</style>` literals in the bundled source must be escaped** to `<\/script>` / `<\/style>`. The bundled `app.jsx` itself contains `</script>` inside its own export template literal — without escaping, the HTML parser closes the outer script tag early. `safeJs` and `safeCss` handle this; don't bypass them.
 2. **Asset URLs are rewritten** by `repAssets` — anywhere the source contains the exact strings `"assets/clawd.png"` or `"assets/person.png"`, they're swapped to base64 data URIs. If you add new asset paths, extend `repAssets`.
+3. **React/Babel are inlined when possible.** The export fetches React, ReactDOM, and Babel from unpkg at click time and inlines them, so the resulting artifact opens fully offline. If those fetches fail (offline export), it falls back to `<script src=...>` tags pointing back at unpkg — the artifact then needs internet to view.
 
 ## Style for changes
 

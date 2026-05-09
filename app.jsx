@@ -375,6 +375,10 @@ function App() {
         fr.onerror = rej;
         fr.readAsDataURL(blob);
       });
+      const REACT_URL = "https://unpkg.com/react@18.3.1/umd/react.production.min.js";
+      const REACT_DOM_URL = "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js";
+      const BABEL_URL = "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js";
+
       const [parserSrc, markdownSrc, uiSrc, appSrc, cssSrc, clawdBlob, personBlob] = await Promise.all([
         fetch("parser.jsx").then(r => r.text()),
         fetch("markdown.jsx").then(r => r.text()),
@@ -384,6 +388,29 @@ function App() {
         fetch("assets/clawd.png").then(r => r.blob()),
         fetch("assets/person.png").then(r => r.blob()),
       ]);
+
+      // Try to inline React/Babel for a fully offline artifact. If unpkg is
+      // unreachable (offline export), fall back to <script src=...> tags so
+      // the artifact still works for viewers with a connection.
+      let libsBlock;
+      try {
+        const [reactSrc, reactDomSrc, babelSrc] = await Promise.all([
+          fetch(REACT_URL).then(r => { if (!r.ok) throw new Error("react"); return r.text(); }),
+          fetch(REACT_DOM_URL).then(r => { if (!r.ok) throw new Error("react-dom"); return r.text(); }),
+          fetch(BABEL_URL).then(r => { if (!r.ok) throw new Error("babel"); return r.text(); }),
+        ]);
+        const safeJs = (s) => s.replace(/<\/script/gi, "<\\/script");
+        libsBlock =
+`<script>${safeJs(reactSrc)}</script>
+<script>${safeJs(reactDomSrc)}</script>
+<script>${safeJs(babelSrc)}</script>`;
+      } catch (e) {
+        console.warn("Could not inline React/Babel; falling back to CDN tags:", e);
+        libsBlock =
+`<script src="${REACT_URL}" crossorigin="anonymous"></script>
+<script src="${REACT_DOM_URL}" crossorigin="anonymous"></script>
+<script src="${BABEL_URL}" crossorigin="anonymous"></script>`;
+      }
 
       const clawdUri = await blobToDataUri(clawdBlob);
       const personUri = await blobToDataUri(personBlob);
@@ -423,9 +450,7 @@ function App() {
 <body>
 <div id="root"></div>
 <script>window.__LOCKED_DATA__ = ${stateJson};</script>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+${libsBlock}
 <script type="text/babel" data-presets="react">
 ${safeJs(repAssets(parserSrc))}
 ${safeJs(repAssets(markdownSrc))}
