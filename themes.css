@@ -257,6 +257,12 @@ input, textarea { font-family: inherit; color: inherit; }
   padding-right: calc(var(--rail-gap) + var(--rail-width));
   position: relative;
 }
+/* When there are no comments, the body-grid recenters to a single column;
+   match it on the header so both share the same left edge. */
+.loaded-state.no-comments .session-header {
+  padding-right: 0;
+  max-width: var(--col-width);
+}
 @media (max-width: 1100px) {
   .session-header { padding-right: 0; max-width: var(--col-width); }
 }

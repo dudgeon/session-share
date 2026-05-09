@@ -174,7 +174,12 @@ function App() {
     });
   };
 
+  // Force-open is propagated to ToolRun groups; without it, "expand all" only
+  // expands the inner nodes whose collapsed group hides them.
+  const [allOpen, setAllOpen] = U(false);
+
   const collapseAllDefaults = () => {
+    setAllOpen(false);
     setEdits((prev) => {
       const next = { ...prev };
       for (const k of Object.keys(next)) {
@@ -188,6 +193,7 @@ function App() {
   };
   const expandAll = () => {
     if (!parsed) return;
+    setAllOpen(true);
     setEdits((prev) => {
       const next = { ...prev };
       for (const n of parsed.nodes) {
@@ -462,7 +468,7 @@ ${safeJs(repAssets(appSrc))}
             />
           </div>
         ) : (
-          <div className="loaded-state">
+          <div className={`loaded-state ${hasComments ? "" : "no-comments"}`}>
             <SessionHeader
               meta={meta}
               sessionInfo={sessionInfo}
@@ -492,7 +498,7 @@ ${safeJs(repAssets(appSrc))}
                         key={`run-${it.nodes[0].id}`}
                         tool={it.tool}
                         nodes={it.nodes}
-                        forceOpen={innerHasComments || (searchHits && it.nodes.some(n => searchHits.has(n.id)))}
+                        forceOpen={allOpen || innerHasComments || (searchHits && it.nodes.some(n => searchHits.has(n.id)))}
                         renderNode={(node) => {
                           const e = edits[node.id] || {};
                           const def = window.SessionParser.defaultCollapsed(node);
