@@ -84,7 +84,7 @@ const Icon = {
 // ────────────────────────────────────────────────────────────────────────────
 // Mini-markdown via window.renderMarkdown (escaped, link-safe)
 // ────────────────────────────────────────────────────────────────────────────
-function CopyButton({ text }) {
+function CopyButton({ text, label = "Copy prompt", className = "copy-btn" }) {
   const [copied, setCopied] = useState(false);
   const onClick = (e) => {
     e.stopPropagation();
@@ -96,10 +96,10 @@ function CopyButton({ text }) {
   };
   return (
     <button
-      className={`copy-btn ${copied ? "is-copied" : ""}`}
+      className={`${className} ${copied ? "is-copied" : ""}`}
       onClick={onClick}
-      title="Copy prompt"
-      aria-label="Copy prompt"
+      title={label}
+      aria-label={label}
     >
       {copied ? <span className="copy-done">✓</span> : <Icon.Copy/>}
     </button>
@@ -526,6 +526,11 @@ function ImportModal({ open, onClose, onFile, onSample, mode }) {
             <summary>
               <span className="help-summary-label">Your logs live at</span>
               <code className="help-summary-path">~/.claude/projects/</code>
+              <CopyButton
+                text="~/.claude/projects/"
+                label="Copy path"
+                className="copy-btn-inline"
+              />
             </summary>
             <div className="help-body">
               <p>Each Claude Code session is one <code>.jsonl</code> file under that folder.</p>
