@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Session navigator — design options</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:wght@400;500;600&family=Source+Serif+4:wght@400;500;600&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --paper:   #F4EFE0;
+    --paper-2: #E9E0C7;
+    --ink:     #211E18;
+    --ink-2:   #524A38;
+    --muted:   #8C8576;
+    --rule:    #C0B898;
+    --rule-2:  #9C9472;
+    --accent:  #4A6B3D;
+    --accent-2: #36502B;
+    --error:   #B53A1F;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 64px 32px 120px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "Geist", system-ui, sans-serif;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+  .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.018em;
+    margin: 0 0 12px;
+  }
+  h2 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.012em;
+    margin: 0 0 8px;
+  }
+  h3 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.008em;
+    margin: 0 0 4px;
+  }
+
+  .lede {
+    font-size: 17px;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0 0 56px;
+  }
+  .section-head {
+    font-family: "Geist", system-ui, sans-serif;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin: 64px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .option {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 32px;
+    padding: 28px 0;
+    border-top: 1px dashed var(--rule);
+    align-items: start;
+  }
+  .option:first-of-type { border-top: 0; padding-top: 8px; }
+
+  .option-body p { margin: 6px 0 10px; font-size: 15px; }
+  .option-body .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 12px;
+    font-family: "Geist", system-ui, sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .meta .pill {
+    padding: 2px 8px;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--ink-2);
+  }
+
+  ul.pros, ul.cons {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  ul.pros li, ul.cons li {
+    position: relative;
+    padding-left: 18px;
+    margin: 4px 0;
+  }
+  ul.pros li::before {
+    content: "+"; position: absolute; left: 0; top: 0;
+    color: var(--accent); font-weight: 600; font-family: "Geist", sans-serif;
+  }
+  ul.cons li::before {
+    content: "−"; position: absolute; left: 0; top: 0;
+    color: var(--error); font-weight: 600; font-family: "Geist", sans-serif;
+  }
+
+  /* Mockup chrome — emulates the app's 3-column reading shape */
+  .mockup {
+    width: 240px;
+    height: 180px;
+    background: #FAF6EC;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .mockup .toolbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 14px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+  }
+  .mockup .brand {
+    width: 30px; height: 4px;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+  .mockup .stage {
+    position: absolute;
+    top: 22px; left: 0; right: 0; bottom: 0;
+    padding: 0 16px;
+  }
+  .mockup .ttl { width: 70px; height: 7px; background: var(--ink); border-radius: 1px; margin: 4px 0; }
+  .mockup .meta-line { width: 110px; height: 3px; background: var(--rule-2); border-radius: 1px; margin-bottom: 8px; }
+  .mockup .prompt {
+    width: calc(100% - 32px);
+    margin-left: 16px;
+    height: 22px;
+    background: white;
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--accent);
+    border-radius: 2px;
+    padding: 3px 5px;
+  }
+  .mockup .prompt-text { width: 80%; height: 3px; background: var(--ink-2); border-radius: 1px; margin: 1.5px 0; }
+  .mockup .prompt-text.short { width: 60%; }
+  .mockup .reply {
+    width: calc(100% - 40px);
+    margin: 6px 0 6px 24px;
+  }
+  .mockup .reply-line { width: 100%; height: 3px; background: var(--rule-2); border-radius: 1px; margin: 2px 0; }
+  .mockup .reply-line.short { width: 70%; }
+  .mockup .avatar {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--rule-2);
+  }
+
+  /* mock 1 — inline contents disclosure */
+  .mock-1 .toc {
+    margin: 4px 0 8px;
+    padding: 4px 6px;
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    font-family: "Geist", sans-serif;
+    font-size: 6px;
+    color: var(--ink-2);
+  }
+  .mock-1 .toc-head { font-weight: 600; color: var(--accent); margin-bottom: 2px; }
+  .mock-1 .toc-item { padding: 1px 0 1px 6px; border-left: 1px solid var(--rule); }
+
+  /* mock 2 — floating dock */
+  .mock-2 .fab {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mock-2 .fab::before {
+    content: "";
+    width: 10px; height: 1.5px;
+    background: white;
+    box-shadow: 0 -3px 0 white, 0 3px 0 white;
+  }
+  .mock-2 .popover {
+    position: absolute;
+    bottom: 36px; right: 8px;
+    width: 110px;
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    padding: 5px 6px;
+    font-family: "Geist", sans-serif;
+    font-size: 6px;
+  }
+  .mock-2 .popover .row { padding: 1.5px 0; color: var(--ink-2); }
+  .mock-2 .popover .row.active { color: var(--accent); font-weight: 600; }
+
+  /* mock 3 — right minimap */
+  .mock-3 .minimap {
+    position: absolute;
+    top: 22px; bottom: 4px; right: 4px;
+    width: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 2px 0;
+  }
+  .mock-3 .minimap .seg {
+    width: 100%;
+    background: var(--rule-2);
+    border-radius: 1px;
+  }
+  .mock-3 .minimap .seg.prompt { background: var(--accent); height: 4px; }
+  .mock-3 .minimap .seg.tool { height: 2px; }
+  .mock-3 .minimap .seg.text { height: 5px; }
+  .mock-3 .viewport {
+    position: absolute;
+    right: 2px;
+    width: 12px;
+    height: 36px;
+    top: 60px;
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius: 1px;
+  }
+
+  /* mock 4 — top progress bar */
+  .mock-4 .progress {
+    position: absolute;
+    top: 14px; left: 0; right: 0;
+    height: 4px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .mock-4 .progress::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 35%;
+    background: color-mix(in srgb, var(--accent) 65%, transparent);
+  }
+  .mock-4 .progress .tick {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--ink-2);
+  }
+  .mock-4 .stage { top: 26px; }
+
+  /* mock 5 — left rail TOC */
+  .mock-5 .rail {
+    position: absolute;
+    top: 22px; bottom: 0; left: 0;
+    width: 64px;
+    background: var(--paper-2);
+    border-right: 1px solid var(--rule);
+    padding: 6px 4px;
+    font-family: "Geist", sans-serif;
+    font-size: 5.5px;
+    color: var(--ink-2);
+  }
+  .mock-5 .rail-head { color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; padding-left: 3px; }
+  .mock-5 .rail-item { padding: 2px 4px 2px 6px; line-height: 1.3; border-left: 1px solid transparent; }
+  .mock-5 .rail-item.active { border-left-color: var(--accent); color: var(--accent); }
+  .mock-5 .stage { left: 64px; }
+  .mock-5 .prompt { width: calc(100% - 24px); margin-left: 8px; }
+
+  /* comparison table */
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-family: "Geist", system-ui, sans-serif;
+    font-size: 13px;
+  }
+  .compare th, .compare td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare th {
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    background: var(--paper-2);
+  }
+  .compare td.dim { color: var(--muted); }
+  .compare .yes { color: var(--accent-2); font-weight: 500; }
+  .compare .no { color: var(--muted); }
+  .compare .partial { color: var(--ink-2); font-style: italic; }
+
+  /* recommendation block */
+  .recommendation {
+    margin-top: 56px;
+    padding: 32px 36px;
+    background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--rule));
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+  }
+  .recommendation .pick {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--accent-2);
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .recommendation .why {
+    font-size: 15.5px;
+    color: var(--ink-2);
+    margin: 0 0 14px;
+  }
+  .recommendation ol {
+    margin: 8px 0 0;
+    padding-left: 20px;
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+  .recommendation ol li { margin: 6px 0; }
+
+  code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.88em;
+    background: var(--paper-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  .footnote {
+    margin-top: 56px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--rule);
+    font-size: 13px;
+    color: var(--muted);
+    font-family: "Geist", system-ui, sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="eyebrow"><span class="eyebrow-dot"></span><span>Design exploration · session.share</span></div>
+
+  <h1>Session navigator</h1>
+  <p class="lede">Long Claude Code sessions get unwieldy. Search and collapse-all help, but readers still scroll a lot to find the prompt they remember. The "TOC / scrubber" slot in <code>BRIEF.md</code> §9 is unfilled. Here are five candidates with trade-offs and a pick at the end.</p>
+
+  <div class="section-head">The candidates</div>
+
+  <!-- Option 1 -->
+  <div class="option">
+    <div class="mockup mock-1">
+      <div class="toolbar"><div class="brand"></div></div>
+      <div class="stage">
+        <div class="ttl"></div>
+        <div class="meta-line"></div>
+        <div class="toc">
+          <div class="toc-head">▾ Contents · 6 prompts</div>
+          <div class="toc-item">Refactor parser…</div>
+          <div class="toc-item">Why does foo break</div>
+          <div class="toc-item">Add the export…</div>
+          <div class="toc-item">Search highlight…</div>
+        </div>
+        <div class="prompt">
+          <div class="avatar" style="left:6px;top:9px"></div>
+          <div class="prompt-text" style="margin-left:10px"></div>
+          <div class="prompt-text short" style="margin-left:10px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-body">
+      <h3>1. Inline contents disclosure</h3>
+      <p>A <code>&lt;details&gt;</code> block at the top of the session, listing every user prompt as a clickable link to its <code>id="node-…"</code> anchor. Closed by default; open shows a 1-line preview per prompt.</p>
+      <ul class="pros">
+        <li>Simplest possible. Semantic HTML, prints well, accessible by default.</li>
+        <li>Zero layout disruption. Works on mobile without changes.</li>
+        <li>Inherently part of the artifact — also visible in exported HTML with no extra plumbing.</li>
+      </ul>
+      <ul class="cons">
+        <li>Only useful before scrolling. Mid-session you'd have to scroll back to use it.</li>
+        <li>Doesn't show your current scroll position.</li>
+      </ul>
+      <div class="meta">
+        <span class="pill">~30 LOC</span>
+        <span class="pill">half a day</span>
+        <span class="pill">no layout reflow</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option 2 -->
+  <div class="option">
+    <div class="mockup mock-2">
+      <div class="toolbar"><div class="brand"></div></div>
+      <div class="stage">
+        <div class="ttl"></div>
+        <div class="meta-line"></div>
+        <div class="prompt">
+          <div class="avatar" style="left:6px;top:9px"></div>
+          <div class="prompt-text" style="margin-left:10px"></div>
+          <div class="prompt-text short" style="margin-left:10px"></div>
+        </div>
+        <div class="reply">
+          <div class="reply-line"></div>
+          <div class="reply-line short"></div>
+        </div>
+      </div>
+      <div class="popover">
+        <div class="row">Refactor parser…</div>
+        <div class="row active">Why does foo break</div>
+        <div class="row">Add the export…</div>
+        <div class="row">Search highlight…</div>
+      </div>
+      <div class="fab"></div>
+    </div>
+    <div class="option-body">
+      <h3>2. Floating prompt-jump dock</h3>
+      <p>A small icon button pinned to the bottom-right corner. Click opens a compact popover listing every user prompt; the one closest to the viewport is highlighted. Click a row to scroll-jump.</p>
+      <ul class="pros">
+        <li>Always reachable, no matter where the user is in the document.</li>
+        <li>Tracks current position automatically (IntersectionObserver on prompts).</li>
+        <li>Doesn't conflict with the existing comment rail or any layout grid.</li>
+        <li>Mobile-friendly: a single tap target.</li>
+      </ul>
+      <ul class="cons">
+        <li>Hidden by default — discoverability depends on the icon being recognizable.</li>
+        <li>Slight SaaS-y feel; needs careful styling to fit the marginalia aesthetic.</li>
+      </ul>
+      <div class="meta">
+        <span class="pill">~120 LOC</span>
+        <span class="pill">~half a day</span>
+        <span class="pill">no layout reflow</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option 3 -->
+  <div class="option">
+    <div class="mockup mock-3">
+      <div class="toolbar"><div class="brand"></div></div>
+      <div class="stage" style="right: 16px;">
+        <div class="ttl"></div>
+        <div class="meta-line"></div>
+        <div class="prompt">
+          <div class="avatar" style="left:6px;top:9px"></div>
+          <div class="prompt-text" style="margin-left:10px"></div>
+        </div>
+        <div class="reply">
+          <div class="reply-line"></div>
+          <div class="reply-line short"></div>
+        </div>
+      </div>
+      <div class="minimap">
+        <div class="seg prompt"></div>
+        <div class="seg text"></div>
+        <div class="seg tool"></div>
+        <div class="seg tool"></div>
+        <div class="seg tool"></div>
+        <div class="seg prompt"></div>
+        <div class="seg text"></div>
+        <div class="seg tool"></div>
+        <div class="seg prompt"></div>
+        <div class="seg text"></div>
+        <div class="seg tool"></div>
+        <div class="seg tool"></div>
+        <div class="seg text"></div>
+        <div class="seg prompt"></div>
+        <div class="seg text"></div>
+      </div>
+      <div class="viewport"></div>
+    </div>
+    <div class="option-body">
+      <h3>3. Right-edge minimap</h3>
+      <p>An 8-12px vertical strip pinned to the viewport's right edge. Each node renders as a colored bar (taller for prompts, shorter for tool calls). A translucent box marks the visible viewport. Click anywhere to jump.</p>
+      <ul class="pros">
+        <li>Communicates session shape and density at a glance — long sessions feel quantified.</li>
+        <li>Live position indicator without click.</li>
+        <li>Click-to-jump anywhere with sub-second targeting.</li>
+      </ul>
+      <ul class="cons">
+        <li>Conflicts spatially with the comment rail when comments exist; needs careful placement (further right? above the rail?).</li>
+        <li>Not very discoverable for first-time users; bars don't carry labels.</li>
+        <li>Click targets are small — easy to misclick on long sessions.</li>
+      </ul>
+      <div class="meta">
+        <span class="pill">~200 LOC</span>
+        <span class="pill">1-2 days</span>
+        <span class="pill">layout: nudges rail</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option 4 -->
+  <div class="option">
+    <div class="mockup mock-4">
+      <div class="toolbar"><div class="brand"></div></div>
+      <div class="progress">
+        <div class="tick" style="left:8%"></div>
+        <div class="tick" style="left:22%"></div>
+        <div class="tick" style="left:38%"></div>
+        <div class="tick" style="left:55%"></div>
+        <div class="tick" style="left:71%"></div>
+        <div class="tick" style="left:88%"></div>
+      </div>
+      <div class="stage">
+        <div class="ttl"></div>
+        <div class="meta-line"></div>
+        <div class="prompt">
+          <div class="avatar" style="left:6px;top:9px"></div>
+          <div class="prompt-text" style="margin-left:10px"></div>
+          <div class="prompt-text short" style="margin-left:10px"></div>
+        </div>
+        <div class="reply">
+          <div class="reply-line"></div>
+          <div class="reply-line short"></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-body">
+      <h3>4. Sticky top progress bar with prompt ticks</h3>
+      <p>A thin horizontal strip pinned below the toolbar. The fill represents scroll progress; tick marks represent user prompts. Hover a tick → preview tooltip; click → jump.</p>
+      <ul class="pros">
+        <li>Reinforces "how far through am I?" — a metric search and TOCs don't surface.</li>
+        <li>No conflict with the right rail.</li>
+        <li>Naturally aligns with the toolbar's existing sticky positioning.</li>
+      </ul>
+      <ul class="cons">
+        <li>Steals 4-8px of vertical real estate from the reading column on every page.</li>
+        <li>Tick density gets unmanageable past ~30 prompts (overlap, hover cone confusion).</li>
+        <li>Visually loud — the filled bar reads like a video player, not a document.</li>
+      </ul>
+      <div class="meta">
+        <span class="pill">~150 LOC</span>
+        <span class="pill">1 day</span>
+        <span class="pill">vertical real estate cost</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option 5 -->
+  <div class="option">
+    <div class="mockup mock-5">
+      <div class="toolbar"><div class="brand"></div></div>
+      <div class="rail">
+        <div class="rail-head">PROMPTS</div>
+        <div class="rail-item">Refactor…</div>
+        <div class="rail-item active">Why foo break</div>
+        <div class="rail-item">Add export</div>
+        <div class="rail-item">Search hl</div>
+      </div>
+      <div class="stage">
+        <div class="ttl"></div>
+        <div class="meta-line"></div>
+        <div class="prompt">
+          <div class="avatar" style="left:6px;top:9px"></div>
+          <div class="prompt-text" style="margin-left:10px"></div>
+        </div>
+        <div class="reply">
+          <div class="reply-line"></div>
+          <div class="reply-line short"></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-body">
+      <h3>5. Persistent left-rail TOC</h3>
+      <p>A permanent sidebar to the left of the conversation column, listing all user prompts. Active prompt highlighted by scroll position. Click to jump.</p>
+      <ul class="pros">
+        <li>Highest information density — full prompt text visible.</li>
+        <li>Always present, easy to discover, mirrors a familiar Notion/Docs pattern.</li>
+        <li>Symmetrical with the comment rail (TOC left, comments right).</li>
+      </ul>
+      <ul class="cons">
+        <li>Big layout cost: needs ~200px on the left, breaks the centered reading column on screens narrower than ~1400px.</li>
+        <li>Forces a 7-column grid (TOC + col + gap + rail) when comments exist; mobile collapse gets tricky.</li>
+        <li>Loud — the rail competes with the body for visual weight.</li>
+        <li>Doesn't work as well in printed/exported view; would need to be hidden.</li>
+      </ul>
+      <div class="meta">
+        <span class="pill">~250 LOC</span>
+        <span class="pill">2-3 days</span>
+        <span class="pill">layout: significant reflow</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head">At a glance</div>
+
+  <table class="compare">
+    <thead>
+      <tr>
+        <th>Option</th>
+        <th>Visible by default</th>
+        <th>Tracks position</th>
+        <th>Layout impact</th>
+        <th>Mobile</th>
+        <th>Effort</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1. Inline disclosure</td>
+        <td class="partial">Above-fold only</td>
+        <td class="no">No</td>
+        <td class="yes">None</td>
+        <td class="yes">Native</td>
+        <td>~30 LOC</td>
+      </tr>
+      <tr>
+        <td>2. Floating dock</td>
+        <td class="partial">Icon always; list on click</td>
+        <td class="yes">Yes</td>
+        <td class="yes">None</td>
+        <td class="yes">Native</td>
+        <td>~120 LOC</td>
+      </tr>
+      <tr>
+        <td>3. Right minimap</td>
+        <td class="yes">Always</td>
+        <td class="yes">Yes</td>
+        <td class="partial">Conflicts with rail</td>
+        <td class="no">Hide on mobile</td>
+        <td>~200 LOC</td>
+      </tr>
+      <tr>
+        <td>4. Top progress bar</td>
+        <td class="yes">Always</td>
+        <td class="yes">Yes</td>
+        <td class="partial">~6px every page</td>
+        <td class="partial">Tick density</td>
+        <td>~150 LOC</td>
+      </tr>
+      <tr>
+        <td>5. Left-rail TOC</td>
+        <td class="yes">Always</td>
+        <td class="yes">Yes</td>
+        <td class="no">Big reflow</td>
+        <td class="no">Collapse to dock</td>
+        <td>~250 LOC</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="recommendation">
+    <div class="eyebrow"><span class="eyebrow-dot"></span><span>Recommendation</span></div>
+    <p class="pick">Ship #2 (floating dock) as the primary navigator, with #1 (inline disclosure) as a complementary at-a-glance overview.</p>
+    <p class="why">The pair fills both jobs without disrupting layout: the inline disclosure is visible immediately and prints well, while the floating dock keeps navigation always-accessible mid-session and tracks scroll position. Neither conflicts with the comment rail. Total cost is comparable to #5 alone, and the result fits the marginalia aesthetic better than a minimap or progress bar.</p>
+
+    <p style="margin-top:18px;font-family:Geist,sans-serif;font-size:11.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Suggested rollout</p>
+    <ol>
+      <li><strong>Phase 1 — inline disclosure (½ day).</strong> A single <code>&lt;details&gt;</code> in <code>SessionHeader</code>, rendering an anchor link per user prompt. Each link uses the existing <code>id="node-{id}"</code>. Print-friendly, works in exported HTML for free.</li>
+      <li><strong>Phase 2 — floating dock (½–1 day).</strong> A new <code>NavDock</code> component in <code>ui.jsx</code>, position: fixed; bottom-right. Click toggles a popover listing prompts. Use <code>IntersectionObserver</code> on each prompt's <code>NodeRow</code> to compute the active prompt. Hide in edit mode (where the toolbar's "expand all" already serves a similar role).</li>
+      <li><strong>Phase 3 — polish.</strong> Keyboard shortcut (<code>g g</code>) to focus the dock; <code>Esc</code> to close; smooth-scroll on click; hide both pieces on sessions with fewer than ~5 prompts (overhead exceeds value).</li>
+    </ol>
+  </div>
+
+  <div class="footnote">
+    Document generated for design review. Mockups are CSS approximations of the existing Field notes theme — not pixel-faithful.
+  </div>
+</div>
+</body>
+</html>
