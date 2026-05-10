@@ -1,36 +1,60 @@
 // ---------------------------------------------------------------------------
-// app.jsx — root <App>, state + persistence + export
+// app.jsx — root <App>: multi-session profile shell + per-session viewer/editor
 // ---------------------------------------------------------------------------
 
 const { useState: U, useEffect: E, useRef: R, useMemo: M, useLayoutEffect: LE, Fragment: F } = React;
 
 // ────────────────────────────────────────────────────────────────────────────
-// Persistence
+// Persistence — multi-session store with v1→v2 migration
 // ────────────────────────────────────────────────────────────────────────────
-const LS_KEY = "session-share-v1";
+const LS_KEY_V1 = "session-share-v1";
+const LS_KEY = "session-share-v2";
 const PREFS_KEY = "session-share-prefs-v1";
 
-function loadPersisted() {
+function loadStore() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // basic shape repair so older states don't crash the app
+      return {
+        profile: parsed.profile || { name: "", bio: "", handle: "" },
+        sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+        currentId: parsed.currentId || null,
+      };
+    }
+    // migrate v1 single-session save into a v2 shelf with one entry
+    const v1raw = localStorage.getItem(LS_KEY_V1);
+    if (v1raw) {
+      const v1 = JSON.parse(v1raw);
+      if (v1 && v1.raw) {
+        const id = uid();
+        const session = {
+          id,
+          raw: v1.raw,
+          edits: v1.edits || {},
+          meta: v1.meta || { title: "", author: "", description: "" },
+          theme: "fieldnotes",
+          mode: v1.mode || "edit",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        return { profile: { name: "", bio: "", handle: "" }, sessions: [session], currentId: null };
+      }
+    }
+  } catch {}
+  return { profile: { name: "", bio: "", handle: "" }, sessions: [], currentId: null };
 }
-function savePersisted(state) {
+
+function saveStore(store) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      raw: state.raw,
-      edits: state.edits,
-      meta: state.meta,
-      theme: state.theme,
-      mode: state.mode,
-    }));
+    localStorage.setItem(LS_KEY, JSON.stringify(store));
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
+
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); }
   catch { return {}; }
@@ -63,18 +87,170 @@ function escapeHtml(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+function filenameToTitle(name) {
+  return (name || "")
+    .replace(/\.(jsonl|json|txt|log)$/i, "")
+    .replace(/^[a-f0-9-]{32,}$/i, "")
+    .replace(/[-_]/g, " ")
+    .trim();
+}
+
+// Pre-compute the lightweight info each profile card needs (cwd, branch,
+// counts, first prompt). Memoised at the App level so we don't re-parse
+// every keystroke.
+function deriveSessionInfo(rawText) {
+  if (!rawText) return { sessionInfo: { messageCount: 0, toolCount: 0 }, firstPrompt: "" };
+  try {
+    const p = window.SessionParser.parseSessionJSONL(rawText);
+    let firstPrompt = "";
+    for (const n of p.nodes) {
+      if (n.kind === "user-prompt" && n.text) { firstPrompt = n.text; break; }
+    }
+    return { sessionInfo: p.session, firstPrompt };
+  } catch {
+    return { sessionInfo: { messageCount: 0, toolCount: 0 }, firstPrompt: "" };
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// App
+// App — top-level router: locked artifact / profile / session
 // ────────────────────────────────────────────────────────────────────────────
 function App() {
   const isLocked = !!window.__LOCKED_DATA__;
-  const persisted = !isLocked ? loadPersisted() : null;
-  const exported = isLocked ? window.__LOCKED_DATA__ : null;
 
-  const [raw, setRaw] = U(exported ? exported.raw : (persisted ? persisted.raw : ""));
-  const [edits, setEdits] = U(exported ? exported.edits : (persisted ? persisted.edits : {}));
-  const [meta, setMeta] = U(exported ? exported.meta : (persisted ? persisted.meta : { title: "", author: "", description: "" }));
-  const [mode, setMode] = U(isLocked ? "view" : (persisted ? persisted.mode : "edit"));
+  // Locked single-session artifact has no profile shell — render a single
+  // SessionView in view mode and exit.
+  if (isLocked) {
+    return <SessionView locked initial={window.__LOCKED_DATA__} />;
+  }
+
+  const [store, setStore] = U(() => loadStore());
+  const [prefs, setPrefs] = U(loadPrefs);
+  const [persistError, setPersistError] = U(false);
+
+  // Auto-persist on any store change. The very first effect run after a
+  // load-from-localStorage is also a write — that's a no-op but keeps the
+  // flow uniform.
+  E(() => {
+    const ok = saveStore(store);
+    setPersistError(!ok);
+  }, [store]);
+
+  const updatePref = (key, val) => {
+    const next = { ...prefs, [key]: val };
+    setPrefs(next);
+    savePrefs(next);
+  };
+
+  // ── Profile actions ──────────────────────────────────────────────────────
+  const updateProfile = (profile) => setStore(s => ({ ...s, profile }));
+
+  const newSession = () => {
+    const id = uid();
+    const session = {
+      id,
+      raw: "",
+      edits: {},
+      meta: { title: "", author: store.profile.name || "", description: "" },
+      theme: "fieldnotes",
+      mode: "edit",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setStore(s => ({ ...s, sessions: [...s.sessions, session], currentId: id }));
+  };
+
+  const openSession = (id) => setStore(s => ({ ...s, currentId: id }));
+  const backToProfile = () => setStore(s => ({ ...s, currentId: null }));
+
+  const renameSession = (id, title) => setStore(s => ({
+    ...s,
+    sessions: s.sessions.map(x => x.id === id ? { ...x, meta: { ...x.meta, title }, updatedAt: Date.now() } : x),
+  }));
+
+  const deleteSession = (id) => setStore(s => ({
+    ...s,
+    sessions: s.sessions.filter(x => x.id !== id),
+    currentId: s.currentId === id ? null : s.currentId,
+  }));
+
+  // SessionView calls this whenever any of its persisted fields change.
+  // Wrapped in useCallback-style identity-stable ref via store closure;
+  // setStore's functional form reads the freshest s.
+  const updateSession = (id, patch) => setStore(s => ({
+    ...s,
+    sessions: s.sessions.map(x => x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x),
+  }));
+
+  // Decorate cards with derived info (memoised so we don't re-parse every
+  // re-render — only when the sessions array changes).
+  const sessionsForList = M(() => {
+    return store.sessions.map(s => {
+      const d = deriveSessionInfo(s.raw);
+      return { ...s, sessionInfo: d.sessionInfo, firstPrompt: d.firstPrompt };
+    });
+  }, [store.sessions]);
+
+  const current = store.currentId ? store.sessions.find(s => s.id === store.currentId) : null;
+
+  return (
+    <Fragment>
+      {persistError ? (
+        <div className="persist-warn" role="status">
+          <span>Session too large to autosave to this browser. Your edits are still in memory but will be lost if you refresh — export now to keep them.</span>
+          <button className="iconbtn" onClick={() => setPersistError(false)} aria-label="Dismiss"><Icon.X/></button>
+        </div>
+      ) : null}
+
+      {!current ? (
+        <div className="app-root">
+          <Toolbar context="profile" hasData={false} isLocked={false} />
+          <main className="page">
+            <ProfileView
+              profile={store.profile}
+              sessions={sessionsForList}
+              mode="edit"
+              onProfileEdit={updateProfile}
+              onNew={newSession}
+              onOpen={openSession}
+              onRename={renameSession}
+              onDelete={deleteSession}
+            />
+          </main>
+        </div>
+      ) : (
+        <SessionView
+          key={current.id}
+          session={current}
+          onChange={(patch) => updateSession(current.id, patch)}
+          onBack={backToProfile}
+          profile={store.profile}
+          prefs={prefs}
+          updatePref={updatePref}
+        />
+      )}
+    </Fragment>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SessionView — single-session viewer/editor
+// Used in three modes: live edit, live view (within profile shell), and
+// locked/exported artifact (no profile shell, no back button).
+// ────────────────────────────────────────────────────────────────────────────
+function SessionView({ session, onChange, onBack, profile, prefs, updatePref, locked, initial }) {
+  const isLocked = !!locked;
+  const exported = isLocked ? initial : null;
+
+  const [raw, setRaw] = U(exported ? exported.raw : (session ? session.raw : ""));
+  const [edits, setEdits] = U(exported ? (exported.edits || {}) : (session ? (session.edits || {}) : {}));
+  const [meta, setMeta] = U(exported ? exported.meta : (session ? session.meta : { title: "", author: "", description: "" }));
+  const [mode, setMode] = U(isLocked ? "view" : (session ? (session.mode || "edit") : "edit"));
+  // Theme is locked to fieldnotes app-wide; the html element already carries
+  // the attribute from markup, and locked artifacts hard-code it on the html
+  // element they ship with.
+  const theme = "fieldnotes";
+
   // searchInput drives the input field (instant); search drives the actual
   // highlighting (debounced). Walking the DOM and inserting <mark> nodes is
   // expensive — short queries like "e" match thousands of times and made the
@@ -85,25 +261,23 @@ function App() {
     const t = setTimeout(() => setSearch(searchInput), 120);
     return () => clearTimeout(t);
   }, [searchInput]);
+
   const [showImport, setShowImport] = U(false);
   const [parseError, setParseError] = U(null);
-  const [prefs, setPrefs] = U(loadPrefs);
   const [showExportInfo, setShowExportInfo] = U(false);
-  const [persistError, setPersistError] = U(false);
   // ID of the comment that was just added — CommentCard reads this to enter
   // edit mode automatically on mount, then clears it via onConsumeAutoEdit.
   const [autoEditCommentId, setAutoEditCommentId] = U(null);
-  // Theme is locked to fieldnotes; the html element already carries it from
-  // markup, so no runtime sync needed.
-  const theme = "fieldnotes";
 
-  // Persist on changes (skip in locked mode)
+  // Propagate session-state changes up to the multi-session store. Skipped
+  // in locked mode (no parent store).
   E(() => {
-    if (isLocked) return;
-    const ok = savePersisted({ raw, edits, meta, theme, mode });
-    setPersistError(!ok);
-  }, [raw, edits, meta, mode, isLocked]);
-  // Lock indicator on body for CSS hooks
+    if (isLocked || !onChange) return;
+    onChange({ raw, edits, meta, theme, mode });
+    // eslint-disable-next-line
+  }, [raw, edits, meta, mode]);
+
+  // Lock indicator on body for CSS hooks (only in the exported artifact)
   E(() => { if (isLocked) document.body.dataset.locked = "true"; }, [isLocked]);
 
   // Parse
@@ -126,7 +300,7 @@ function App() {
     reader.onload = (e) => {
       const text = e.target.result;
       setRaw(text);
-      setEdits({});                                                // wipe per-node overrides on new file
+      setEdits({});
       setMeta((m) => ({ ...m, title: m.title || filenameToTitle(file.name) }));
       setMode("edit");
     };
@@ -139,7 +313,11 @@ function App() {
       const text = await r.text();
       setRaw(text);
       setEdits({});
-      setMeta({ title: "Sample · Rollout design handoff", author: "demo", description: "A short session showing how Claude Code consumes a design handoff and pushes it to GitHub." });
+      setMeta({
+        title: "Sample · Rollout design handoff",
+        author: (profile && profile.name) || "demo",
+        description: "A short session showing how Claude Code consumes a design handoff and pushes it to GitHub.",
+      });
       setMode("edit");
     } catch {
       alert("Could not load sample. Try uploading your own file.");
@@ -251,7 +429,6 @@ function App() {
   // ── Effective node list (with grouped deletions + tool-runs) ─────────────
   const renderable = M(() => {
     if (!parsed) return [];
-    // pass 1: drop deletions, group runs of consecutive deletions
     const live = [];
     let runIds = [];
     for (const n of parsed.nodes) {
@@ -265,7 +442,6 @@ function App() {
     }
     if (runIds.length) live.push({ kind: "deleted-run", count: runIds.length, nodeIds: runIds });
 
-    // pass 2: group consecutive same-tool tool-calls (≥3) into tool-run
     const out = [];
     const TOOL_RUN_MIN = 3;
     let buf = [];
@@ -316,7 +492,7 @@ function App() {
 
   const recomputePositions = () => {
     if (!conversationRef.current) return;
-    const grid = conversationRef.current.parentElement; // body-grid
+    const grid = conversationRef.current.parentElement;
     if (!grid) return;
     const gridTop = grid.getBoundingClientRect().top + window.scrollY;
     const items = [];
@@ -328,7 +504,6 @@ function App() {
       items.push({ ...c, anchorTop: top });
     }
     items.sort((a, b) => a.anchorTop - b.anchorTop);
-    // Anti-overlap pass
     const MIN_GAP = 12;
     for (let i = 1; i < items.length; i++) {
       const prev = items[i - 1];
@@ -345,12 +520,9 @@ function App() {
     // eslint-disable-next-line
   }, [allComments, edits, mode, theme, search]);
 
-  // ── Search match highlighting now happens in MD/text components via context
-
   E(() => {
     const onResize = () => recomputePositions();
     window.addEventListener("resize", onResize);
-    // observe DOM size changes (collapsing nodes shifts everything)
     let ro;
     if (conversationRef.current && window.ResizeObserver) {
       ro = new ResizeObserver(onResize);
@@ -363,7 +535,6 @@ function App() {
     // eslint-disable-next-line
   }, [parsed]);
 
-  // recompute when fonts settle
   E(() => {
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => recomputePositions());
@@ -384,9 +555,10 @@ function App() {
       const REACT_DOM_URL = "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js";
       const BABEL_URL = "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js";
 
-      const [parserSrc, markdownSrc, uiSrc, appSrc, cssSrc, clawdBlob, personBlob] = await Promise.all([
+      const [parserSrc, markdownSrc, profileSrc, uiSrc, appSrc, cssSrc, clawdBlob, personBlob] = await Promise.all([
         fetch("parser.jsx").then(r => r.text()),
         fetch("markdown.jsx").then(r => r.text()),
+        fetch("profile.jsx").then(r => r.text()),
         fetch("ui.jsx").then(r => r.text()),
         fetch("app.jsx").then(r => r.text()),
         fetch("themes.css").then(r => r.text()),
@@ -470,6 +642,7 @@ ${libsBlock}
 <script type="text/babel" data-presets="react">
 ${safeJs(repAssets(parserSrc))}
 ${safeJs(repAssets(markdownSrc))}
+${safeJs(repAssets(profileSrc))}
 ${safeJs(repAssets(uiSrc))}
 ${safeJs(repAssets(appSrc))}
 </script>
@@ -478,17 +651,11 @@ ${safeJs(repAssets(appSrc))}
 
       const filename = (slugify(meta.title) || "session") + ".html";
       downloadFile(filename, html, "text/html");
-      if (!prefs.hideExportInfo) setShowExportInfo(true);
+      if (prefs && !prefs.hideExportInfo) setShowExportInfo(true);
     } catch (err) {
       console.error(err);
       alert("Export failed: " + (err.message || err));
     }
-  };
-
-  const updatePref = (key, val) => {
-    const next = { ...prefs, [key]: val };
-    setPrefs(next);
-    savePrefs(next);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -496,7 +663,6 @@ ${safeJs(repAssets(appSrc))}
   const sessionInfo = parsed ? parsed.session : { messageCount: 0, toolCount: 0 };
   const hasComments = positioned.length > 0;
 
-  // Compute first user-prompt index for drop-cap
   const firstPromptIdx = parsed
     ? (() => {
         for (let i = 0; i < parsed.nodes.length; i++) {
@@ -509,13 +675,8 @@ ${safeJs(repAssets(appSrc))}
 
   return (
     <div className="app-root">
-      {persistError ? (
-        <div className="persist-warn" role="status">
-          <span>Session too large to autosave to this browser. Your edits are still in memory but will be lost if you refresh — export now to keep them.</span>
-          <button className="iconbtn" onClick={() => setPersistError(false)} aria-label="Dismiss"><Icon.X/></button>
-        </div>
-      ) : null}
       <Toolbar
+        context="session"
         mode={mode}
         onMode={isLocked ? () => {} : setMode}
         onUploadClick={triggerUpload}
@@ -526,6 +687,7 @@ ${safeJs(repAssets(appSrc))}
         isLocked={isLocked}
         onCollapseAll={collapseAllDefaults}
         onExpandAll={expandAll}
+        onBack={isLocked ? null : onBack}
       />
 
       <main className="page">
@@ -665,19 +827,11 @@ ${safeJs(repAssets(appSrc))}
       <ExportInfoModal
         open={showExportInfo}
         onClose={() => setShowExportInfo(false)}
-        hidePref={!!prefs.hideExportInfo}
-        setHidePref={(v) => updatePref("hideExportInfo", v)}
+        hidePref={!!(prefs && prefs.hideExportInfo)}
+        setHidePref={(v) => updatePref && updatePref("hideExportInfo", v)}
       />
     </div>
   );
-}
-
-function filenameToTitle(name) {
-  return (name || "")
-    .replace(/\.(jsonl|json|txt|log)$/i, "")
-    .replace(/^[a-f0-9-]{32,}$/i, "")    // raw uuid → leave blank
-    .replace(/[-_]/g, " ")
-    .trim();
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);

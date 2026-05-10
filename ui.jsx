@@ -69,6 +69,7 @@ const Icon = {
     </svg>
   ),
   Plus:  () => <svg className="icn" width="12" height="12" viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+  ArrowLeft: () => <svg className="icn" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7.5 2.5 3 6l4.5 3.5M3 6h7"/></svg>,
   Trash: () => <svg className="icn" width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 4h9M5.5 4V2.5h3V4M4 4l.5 7.5h5L10 4"/></svg>,
   Comment: () => <svg className="icn" width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3.5h10v6.5H6L3.5 12V10H2z"/></svg>,
   Copy: () => <svg className="icn" width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1.2"/><path d="M2 9.5V2.5h7"/></svg>,
@@ -712,24 +713,49 @@ function formatDuration(a, b) {
 // Toolbar
 // ────────────────────────────────────────────────────────────────────────────
 function Toolbar({
-  mode, onMode, onUploadClick, onExport,
+  context, mode, onMode, onUploadClick, onExport,
   search, onSearch, hasData, isLocked,
-  onCollapseAll, onExpandAll,
+  onCollapseAll, onExpandAll, onBack,
 }) {
+  // Brandmark serves three roles:
+  //   1. Locked artifact: external link to canonical site (so viewers can
+  //      learn what session.share is).
+  //   2. Profile (no current session): same external link.
+  //   3. Live session: in-app back button to the profile shell.
+  // onBack is only set in role 3.
+  const isProfile = context === "profile";
+  const brandmark = onBack ? (
+    <button
+      className="brandmark brandmark-btn"
+      onClick={onBack}
+      title="Back to your shared sessions"
+    >
+      <img src={ASSET_CLAWD} alt="" />
+      <span>session.share</span>
+    </button>
+  ) : (
+    <a
+      className="brandmark"
+      href="https://dudgeon.org/session-share/"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="session.share"
+    >
+      <img src={ASSET_CLAWD} alt="" />
+      <span>session.share</span>
+    </a>
+  );
+
   return (
     <div className="toolbar">
       <div className="toolbar-inner">
         <div className="toolbar-left">
-          <a
-            className="brandmark"
-            href="https://dudgeon.org/session-share/"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="session.share"
-          >
-            <img src={ASSET_CLAWD} alt="" />
-            <span>session.share</span>
-          </a>
+          {brandmark}
+          {onBack ? (
+            <button className="tbtn tbtn-back" onClick={onBack} title="Back to profile">
+              <Icon.ArrowLeft/> profile
+            </button>
+          ) : null}
         </div>
         <div className="toolbar-mid">
           {hasData ? (
@@ -759,7 +785,7 @@ function Toolbar({
             </span>
           ) : null}
 
-          {!isLocked ? (
+          {!isLocked && !isProfile ? (
             <button className="tbtn" onClick={onUploadClick} title="Replace session log">
               <Icon.Upload/> {hasData ? "replace" : "upload"}
             </button>
