@@ -1005,6 +1005,34 @@ mark.hl { background: color-mix(in srgb, var(--accent) 28%, transparent); color:
   border-radius: 3px;
   color: var(--ink);
 }
+/* Inline copy button — used in places where the user-prompt copy button's
+   absolute positioning doesn't apply (e.g. next to the modal path chip). */
+.copy-btn-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink-2);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.copy-btn-inline:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+  border-color: var(--rule-2);
+}
+.copy-btn-inline.is-copied {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.copy-btn-inline .copy-done { font-size: 13px; line-height: 1; }
 .help-disclosure summary::-webkit-details-marker { display: none; }
 .help-disclosure summary::before {
   content: "›";
